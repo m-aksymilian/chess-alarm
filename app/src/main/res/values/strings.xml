@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Chess Alarm</string>
+    <string name="widget_name">Next alarm</string>
+    <string name="widget_description">Your next alarm with a quick on/off switch</string>
+</resources>
