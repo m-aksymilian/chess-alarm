@@ -18,17 +18,13 @@ A personal Android alarm clock that only stops when you solve a chess puzzle.
 GitHub Actions (`.github/workflows/build.yml`) runs the tests and builds a signed release APK on every
 push; download it from the run's **Artifacts** (`chess-alarm-apk`).
 
-## Signing (repository secrets)
+## Signing
 
-| Secret | Value |
-| --- | --- |
-| `KEYSTORE_BASE64` | the release keystore (PKCS12), base64-encoded |
-| `KEYSTORE_PASSWORD` | keystore password |
-| `KEY_ALIAS` | `chessalarm` |
-| `KEY_PASSWORD` | key password (same as the keystore password) |
-| `SPOTIFY_CLIENT_ID` | optional: bakes your Spotify client ID into the build (it can also be entered in Settings) |
-
-Keep the keystore: Android only installs updates signed with the same key.
+The release keystore is committed in `app/signing/` (alias `chessalarm`), so CI needs no secrets.
+**Keep this repository private**: anyone with the keystore can sign an APK your phone accepts as an
+update. Keep a backup of `app/signing/`: Android only installs updates signed with the same key.
+Optional secret: `SPOTIFY_CLIENT_ID` bakes your Spotify client ID into the build (it can also be
+entered in Settings).
 
 ## Spotify
 

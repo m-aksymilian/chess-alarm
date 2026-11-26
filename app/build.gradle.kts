@@ -1,12 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
 
-// Release signing comes from environment variables (set by the GitHub Actions workflow from repo secrets).
-// Locally, without them, release builds fall back to the debug key so `assembleRelease` still works.
-val keystorePath: String? = System.getenv("KEYSTORE_PATH")
+// Release signing: the keystore committed in app/signing (repo must stay private), unless
+// KEYSTORE_PATH and friends are set in the environment to override it.
+val signingProps = Properties().apply {
+    val f = file("signing/keystore.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+// An environment override must be complete; otherwise its values would mix with the committed ones.
+val envSigning: Map<String, String>? = System.getenv("KEYSTORE_PATH")?.let { path ->
+    val keys = listOf("KEYSTORE_PASSWORD", "KEY_ALIAS", "KEY_PASSWORD")
+    val missing = keys.filter { System.getenv(it).isNullOrEmpty() }
+    require(missing.isEmpty()) { "KEYSTORE_PATH is set but ${missing.joinToString()} missing" }
+    mapOf("path" to path) + keys.associateWith { System.getenv(it)!! }
+}
+val keystorePath: String? = envSigning?.get("path")
+    ?: file("signing/release.jks").takeIf { it.exists() }?.absolutePath
 
 android {
     namespace = "app.chessalarm"
@@ -31,9 +45,9 @@ android {
         if (keystorePath != null) {
             create("release") {
                 storeFile = file(keystorePath)
-                storePassword = System.getenv("KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("KEY_ALIAS")
-                keyPassword = System.getenv("KEY_PASSWORD")
+                storePassword = envSigning?.get("KEYSTORE_PASSWORD") ?: signingProps.getProperty("storePassword")
+                keyAlias = envSigning?.get("KEY_ALIAS") ?: signingProps.getProperty("keyAlias")
+                keyPassword = envSigning?.get("KEY_PASSWORD") ?: signingProps.getProperty("keyPassword")
             }
         }
     }

@@ -9,3 +9,6 @@ captures/
 *.jks
 *.keystore
 keystore.properties
+# The app release key is tracked on purpose (private repo only).
+!app/signing/release.jks
+!app/signing/keystore.properties
