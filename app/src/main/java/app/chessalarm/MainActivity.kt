@@ -92,9 +92,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         AppStore.init(this)
-        enableEdgeToEdge()
         val toggleId = intent.getLongExtra(EXTRA_TOGGLE_ALARM, Long.MIN_VALUE).takeIf { it != Long.MIN_VALUE }
-        setContent { ChessAlarmTheme { App(toggleId) } }
+        val start = {
+            enableEdgeToEdge()
+            setContent { ChessAlarmTheme { App(toggleId) } }
+        }
+        if (!CrashLog.showIfCrashed(this) { start() }) start()
     }
 
     override fun onResume() {

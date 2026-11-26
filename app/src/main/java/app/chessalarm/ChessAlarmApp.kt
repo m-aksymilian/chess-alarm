@@ -12,6 +12,7 @@ import app.chessalarm.ring.AlarmService
 class ChessAlarmApp : Application() {
     override fun onCreate() {
         super.onCreate()
+        CrashLog.install(this)
         AppStore.init(this)
         Notifications.ensureChannels(this)
         recoverUnfinishedRing()

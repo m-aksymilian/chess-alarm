@@ -54,8 +54,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // R8 is off on purpose: the shrunk build broke on a real phone and stripped the alarm
+            // tunes (loaded by name). Reliability matters more than APK size for an alarm clock.
+            isMinifyEnabled = false
+            isShrinkResources = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = if (keystorePath != null) signingConfigs.getByName("release")
             else signingConfigs.getByName("debug")
