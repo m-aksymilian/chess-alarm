@@ -189,25 +189,31 @@ class AlarmService : Service() {
         val settings = data.settings
         val alarm = data.alarms.firstOrNull { it.id == alarmId }
 
+        val stillAwake = kind == RingKind.STILL_AWAKE || kind == RingKind.TEST_STILL_AWAKE
+        val sa = settings.stillAwake
         wake = when {
             kind == RingKind.ALARM && alarm != null -> alarm.wake.applyTo(settings.wake)
-            kind == RingKind.STILL_AWAKE -> settings.wake.copy(fadeInEnabled = false)
+            stillAwake -> settings.wake.copy(vibrationPattern = sa.vibrationPattern)
             else -> settings.wake
         }
-        primary = (if (kind == RingKind.ALARM) alarm?.sound else null) ?: settings.defaultSound
+        primary = (if (kind == RingKind.ALARM) alarm?.sound else null)
+            ?: (if (stillAwake) sa.sound else null)
+            ?: settings.defaultSound
         secondary = wake.secondarySound.takeIf { it.type != SoundType.SPOTIFY } ?: BuiltInTunes.default(harsh = true)
         fallback = settings.defaultSound.takeIf { it.type != SoundType.SPOTIFY } ?: BuiltInTunes.default(harsh = false)
 
-        val timeScale = if (kind == RingKind.TEST_SEQUENCE) 0.15f else 1f
+        val timeScale = if (kind == RingKind.TEST_SEQUENCE || kind == RingKind.TEST_STILL_AWAKE) 0.15f else 1f
         val now = SystemClock.elapsedRealtime()
         ringStartElapsed = now
-        machine = RingStateMachine(RingConfig.from(wake, timeScale), now, resumeViolent = resume && kind != RingKind.TEST_SEQUENCE)
+        val ringConfig = if (stillAwake) RingConfig.stillAwake(wake, sa, timeScale) else RingConfig.from(wake, timeScale)
+        machine = RingStateMachine(ringConfig, now, resumeViolent = resume && kind != RingKind.TEST_SEQUENCE && kind != RingKind.TEST_STILL_AWAKE)
 
         val label = when (kind) {
             RingKind.ALARM -> alarm?.label?.ifBlank { "Alarm" } ?: persisted?.label ?: "Alarm"
             RingKind.STILL_AWAKE -> "Are you still awake?"
             RingKind.TEST_ALARM -> "Test alarm"
             RingKind.TEST_SEQUENCE -> "Wake sequence test"
+            RingKind.TEST_STILL_AWAKE -> "Still-awake test"
         }
         ring = ActiveRing(alarmId, kind, persisted?.startedAtMs ?: System.currentTimeMillis(), null, bootCount(this), label)
         newPuzzle(exclude = null)
@@ -301,7 +307,8 @@ class AlarmService : Service() {
                 version = version,
                 phase = m.phase,
                 canMute = m.canMute,
-                skippable = r.kind == RingKind.STILL_AWAKE,
+                skippable = r.kind == RingKind.STILL_AWAKE && settings.stillAwake.skippable,
+                testMode = r.kind == RingKind.TEST_SEQUENCE || r.kind == RingKind.TEST_STILL_AWAKE,
                 emergencyEnabled = settings.emergencyExitEnabled,
                 emergencyCode = settings.emergencyCode,
                 finished = finished,
@@ -428,8 +435,8 @@ class AlarmService : Service() {
     fun requestEnd(reason: EndReason) {
         val r = ring ?: return
         val allowed = when (reason) {
-            EndReason.SKIPPED -> r.kind == RingKind.STILL_AWAKE
-            EndReason.TEST_ENDED -> r.kind == RingKind.TEST_SEQUENCE
+            EndReason.SKIPPED -> r.kind == RingKind.STILL_AWAKE && AppStore.current.settings.stillAwake.skippable
+            EndReason.TEST_ENDED -> r.kind == RingKind.TEST_SEQUENCE || r.kind == RingKind.TEST_STILL_AWAKE
             else -> false
         }
         if (allowed) finish(reason)
@@ -496,13 +503,20 @@ class AlarmService : Service() {
                     target = AdaptiveDifficulty.next(cur, solveMs, settings.minRating, settings.maxRating)
                 }
             }
-            if (reason == EndReason.EMERGENCY_EXIT && r.kind != RingKind.TEST_SEQUENCE) {
+            if (reason == EndReason.EMERGENCY_EXIT && r.kind != RingKind.TEST_SEQUENCE && r.kind != RingKind.TEST_STILL_AWAKE) {
                 stats = stats.copy(emergencyExits = stats.emergencyExits + System.currentTimeMillis(), streak = 0)
             }
             d.copy(stats = stats, adaptiveTarget = target)
         }
         if (counts && reason == EndReason.SOLVED && (alarm?.stillAwakeCheck ?: settings.stillAwakeCheck)) {
-            AlarmScheduler.scheduleStillAwakePrompt(this)
+            // Start a new series of checks.
+            AppStore.update(this) { it.copy(stillAwakeRemaining = settings.stillAwake.checks.coerceAtLeast(1)) }
+            AlarmScheduler.scheduleStillAwakePrompt(this, settings.stillAwake.delayMin * 60_000L)
+        } else if (r.kind == RingKind.STILL_AWAKE && reason != EndReason.EMERGENCY_EXIT) {
+            // After a re-ring, carry on with the series if checks are left.
+            if (AppStore.current.stillAwakeRemaining > 0) {
+                AlarmScheduler.scheduleStillAwakePrompt(this, settings.stillAwake.delayMin * 60_000L)
+            }
         }
     }
 

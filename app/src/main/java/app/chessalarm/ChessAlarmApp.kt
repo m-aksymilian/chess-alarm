@@ -25,7 +25,7 @@ class ChessAlarmApp : Application() {
     private fun recoverUnfinishedRing() {
         val ring = AppStore.activeRing(this) ?: return
         if (AlarmService.isRunning) return
-        if (ring.kind == RingKind.TEST_SEQUENCE) {
+        if (ring.kind == RingKind.TEST_SEQUENCE || ring.kind == RingKind.TEST_STILL_AWAKE) {
             AppStore.setActiveRing(this, null)
             return
         }

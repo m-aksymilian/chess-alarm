@@ -114,6 +114,30 @@ data class Alarm(
     val adaptiveDifficulty: Boolean? = null,
 )
 
+/** The "Are you still awake?" check: every part of it is configurable. */
+@Serializable
+data class StillAwakeConfig(
+    /** Minutes after solving before the check notification appears. */
+    val delayMin: Int = 3,
+    /** Seconds you have to tap "I'm up". */
+    val responseSec: Int = 60,
+    /** How many checks in a row (each one after the previous is answered or re-rung). */
+    val checks: Int = 1,
+    /** Re-ring: seconds of vibration only before any sound. */
+    val vibrationOnlySec: Int = 15,
+    /** Re-ring: seconds to fade the sound from [startVolumePercent] into the violent phase (0 = straight to violent). */
+    val fadeSec: Int = 60,
+    val startVolumePercent: Int = 2,
+    /** Null = the default alarm sound. */
+    val sound: SoundChoice? = null,
+    val vibrationPattern: VibrationPattern = VibrationPattern.PULSE,
+    val vibrationIntensity: Intensity = Intensity.NORMAL,
+    val smartEscalation: Boolean = true,
+    val solvingMode: SolvingMode = SolvingMode.VIBRATE_ONLY,
+    /** Show a "Skip puzzle" button on the re-ring. */
+    val skippable: Boolean = true,
+)
+
 @Serializable
 data class Settings(
     val onboardingDone: Boolean = false,
@@ -124,6 +148,7 @@ data class Settings(
     // Extra features (all toggles)
     val adaptiveDifficulty: Boolean = true,
     val stillAwakeCheck: Boolean = false,
+    val stillAwake: StillAwakeConfig = StillAwakeConfig(),
     val statsEnabled: Boolean = true,
     val bedtimeReminder: Boolean = false,
     val bedtimeHoursBefore: Int = 8,
@@ -164,6 +189,8 @@ data class AppData(
     val stats: Stats = Stats(),
     val adaptiveTarget: Int? = null,
     val recentPuzzles: List<String> = emptyList(),
+    /** Still-awake checks left in the current series. */
+    val stillAwakeRemaining: Int = 0,
     val spotifyToken: String? = null,
     val spotifyTokenExpiresAt: Long = 0,
     val spotifyUser: String? = null,
@@ -171,7 +198,7 @@ data class AppData(
 
 /** Why the ringing screen was shown. */
 @Serializable
-enum class RingKind { ALARM, STILL_AWAKE, TEST_ALARM, TEST_SEQUENCE }
+enum class RingKind { ALARM, STILL_AWAKE, TEST_ALARM, TEST_SEQUENCE, TEST_STILL_AWAKE }
 
 /** The currently ringing alarm, persisted so a reboot or process death resumes ringing. */
 @Serializable

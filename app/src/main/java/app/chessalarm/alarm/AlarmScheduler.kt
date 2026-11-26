@@ -116,11 +116,11 @@ object AlarmScheduler {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    fun scheduleStillAwakePrompt(context: Context, delayMs: Long = 3 * 60_000L) {
+    fun scheduleStillAwakePrompt(context: Context, delayMs: Long) {
         setExact(context, System.currentTimeMillis() + delayMs, helperIntent(context, ACTION_STILL_AWAKE_PROMPT, RC_STILL_AWAKE_PROMPT))
     }
 
-    fun scheduleStillAwakeTimeout(context: Context, delayMs: Long = 60_000L) {
+    fun scheduleStillAwakeTimeout(context: Context, delayMs: Long) {
         // setAlarmClock so the re-ring is as reliable as a real alarm.
         setAlarmClock(context, System.currentTimeMillis() + delayMs, helperIntent(context, ACTION_STILL_AWAKE_TIMEOUT, RC_STILL_AWAKE_TIMEOUT))
     }

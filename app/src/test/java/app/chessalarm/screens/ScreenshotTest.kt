@@ -62,7 +62,7 @@ class ScreenshotTest {
     }
 
     @Test fun settings() = shot("3_settings") {
-        SettingsScreen(Settings(), SpotifyStatus(false, "", "AB:CD"), true, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {})
+        SettingsScreen(Settings(stillAwakeCheck = true), SpotifyStatus(false, "", "AB:CD"), true, {}, {}, {}, {}, { _, _ -> }, {}, {}, {}, {}, {}, {}, {}, {})
     }
 
     @Test fun stats() = shot("5_stats") {

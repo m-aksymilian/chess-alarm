@@ -72,19 +72,19 @@ object Notifications {
             .build()
             .apply { flags = flags or Notification.FLAG_NO_CLEAR or Notification.FLAG_INSISTENT }
 
-    fun showStillAwake(context: Context) {
+    fun showStillAwake(context: Context, responseSec: Int) {
         val imUp = PendingIntent.getBroadcast(
             context, 20, Intent(context, AlarmReceiver::class.java).setAction(AlarmScheduler.ACTION_IM_UP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val n = builder(context, CHANNEL_STILL_AWAKE)
             .setContentTitle("Are you still awake?")
-            .setContentText("Tap “I’m up” within 60 seconds, or the alarm rings again.")
+            .setContentText("Tap “I’m up” within $responseSec seconds, or the alarm rings again.")
             .setCategory(Notification.CATEGORY_ALARM)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setContentIntent(imUp)
             .setAutoCancel(true)
-            .setTimeoutAfter(70_000)
+            .setTimeoutAfter(responseSec * 1000L + 10_000)
             .addAction(Notification.Action.Builder(null, "I’m up", imUp).build())
             .build()
         notify(context, ID_STILL_AWAKE, n)

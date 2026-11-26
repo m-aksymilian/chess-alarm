@@ -3,6 +3,7 @@ package app.chessalarm.ring
 import app.chessalarm.data.GentleVibration
 import app.chessalarm.data.Intensity
 import app.chessalarm.data.SolvingMode
+import app.chessalarm.data.StillAwakeConfig
 import app.chessalarm.data.WakeConfig
 import kotlin.math.pow
 
@@ -55,8 +56,34 @@ data class RingConfig(
     val secondarySound: Boolean,
     val lowSoundLevel: Float = 0.15f,
     val masterVolume: Float,
+    /** At the start of the gentle phase, vibrate only (no sound) for this long. */
+    val silentLeadMs: Long = 0,
+    /** Vibration level in the gentle phase when [gentleVibration] is SOFT. */
+    val gentleVibrationIntensity: Intensity = Intensity.GENTLE,
 ) {
     companion object {
+        /**
+         * The "are you still awake?" re-ring: vibration only at first, then the sound fades in
+         * smoothly into the violent phase. Every part comes from [StillAwakeConfig].
+         */
+        fun stillAwake(c: WakeConfig, sa: StillAwakeConfig, timeScale: Float = 1f): RingConfig {
+            val lead = (sa.vibrationOnlySec * 1000L * timeScale).toLong()
+            val fade = (sa.fadeSec * 1000L * timeScale).toLong()
+            return from(c, timeScale).copy(
+                fadeIn = true,
+                gentleMs = lead + fade,
+                silentLeadMs = lead,
+                gentleStart = sa.startVolumePercent / 100f,
+                gentleMax = 1f,
+                gentleVibration = GentleVibration.SOFT,
+                gentleVibrationIntensity = sa.vibrationIntensity,
+                baseIntensity = sa.vibrationIntensity,
+                smartEscalation = sa.smartEscalation,
+                solvingMode = sa.solvingMode,
+                vibrationEnabled = true,
+            )
+        }
+
         fun from(c: WakeConfig, timeScale: Float = 1f) = RingConfig(
             fadeIn = c.fadeInEnabled,
             gentleMs = (c.gentleDurationSec * 1000L * timeScale).toLong(),
@@ -168,12 +195,15 @@ class RingStateMachine(
         fun vib(level: Intensity?) = if (config.vibrationEnabled) level else null
         return when (phase) {
             Phase.GENTLE -> {
-                val progress = if (config.gentleMs <= 0) 1f else (now - startedAt).toFloat() / config.gentleMs
+                val elapsed = now - startedAt
+                val silent = elapsed < config.silentLeadMs
+                val fadeMs = config.gentleMs - config.silentLeadMs
+                val progress = if (fadeMs <= 0) 1f else (elapsed - config.silentLeadMs).toFloat() / fadeMs
                 RingOutput(
                     phase,
-                    WakeCurve.gentle(progress, config.gentleStart, config.gentleMax) * master,
-                    SoundSlot.PRIMARY,
-                    vib(if (config.gentleVibration == GentleVibration.SOFT) Intensity.GENTLE else null),
+                    if (silent) 0f else WakeCurve.gentle(progress, config.gentleStart, config.gentleMax) * master,
+                    if (silent) SoundSlot.NONE else SoundSlot.PRIMARY,
+                    vib(if (config.gentleVibration == GentleVibration.SOFT) config.gentleVibrationIntensity else null),
                     canMute,
                 )
             }

@@ -49,6 +49,7 @@ import app.chessalarm.data.Intensity
 import app.chessalarm.data.Settings
 import app.chessalarm.data.SolvingMode
 import app.chessalarm.data.Stats
+import app.chessalarm.data.StillAwakeConfig
 import app.chessalarm.data.VibrationPattern
 import app.chessalarm.data.WakeConfig
 import app.chessalarm.data.WakeOverrides
@@ -72,6 +73,8 @@ fun SettingsScreen(
     onPreviewVibration: (VibrationPattern, Intensity) -> Unit,
     onTestAlarm: () -> Unit,
     onTestSequence: () -> Unit,
+    onPickStillAwakeSound: () -> Unit,
+    onTestStillAwake: () -> Unit,
     onPermissions: () -> Unit,
     onSpotifyLogin: () -> Unit,
     onSpotifyLogout: () -> Unit,
@@ -133,10 +136,9 @@ fun SettingsScreen(
                 }
             }
 
+            StillAwakeSection(settings, onChange, onPickStillAwakeSound, onTestStillAwake)
+
             Group("Extras") {
-                SwitchRow("Are you still awake check", settings.stillAwakeCheck, "3 min after solving, tap “I’m up” within 60 s") {
-                    onChange(settings.copy(stillAwakeCheck = it))
-                }
                 SwitchRow("Wake-up stats", settings.statsEnabled) { onChange(settings.copy(statsEnabled = it)) }
                 SwitchRow("Bedtime reminder", settings.bedtimeReminder, divider = true) { onChange(settings.copy(bedtimeReminder = it)) }
                 if (settings.bedtimeReminder) {
@@ -170,6 +172,52 @@ fun SettingsScreen(
                 "Chess pieces: cburnett (Colin M.L. Burnett). Puzzles: Lichess database (CC0). Tunes: original.",
                 style = Type.Footnote, modifier = Modifier.padding(32.dp),
             )
+        }
+    }
+}
+
+@Composable
+private fun StillAwakeSection(
+    settings: Settings,
+    onChange: (Settings) -> Unit,
+    onPickSound: () -> Unit,
+    onTest: () -> Unit,
+) {
+    val sa = settings.stillAwake
+    fun set(c: StillAwakeConfig) = onChange(settings.copy(stillAwake = c))
+    val on = settings.stillAwakeCheck
+    Group(
+        "Are you still awake?",
+        footer = if (on) "After ${sa.delayMin} min a notification asks you to tap \u201cI\u2019m up\u201d within ${formatSeconds(sa.responseSec)}. " +
+            "If you don\u2019t, it rings again: ${if (sa.vibrationOnlySec > 0) "vibration only for ${formatSeconds(sa.vibrationOnlySec)}, then " else ""}" +
+            "${if (sa.fadeSec > 0) "the sound fades into full blast over ${formatSeconds(sa.fadeSec)}" else "full blast"}. Can be turned off per alarm." else null,
+    ) {
+        SwitchRow("Still-awake check", on, "Make sure you didn\u2019t fall back asleep", divider = on) {
+            onChange(settings.copy(stillAwakeCheck = it))
+        }
+        if (on) {
+            SliderRow("Ask after", sa.delayMin.toFloat(), 1f..15f, "${sa.delayMin} min", steps = 13) { set(sa.copy(delayMin = it.toInt())) }
+            SliderRow("Time to answer", sa.responseSec.toFloat(), 15f..300f, formatSeconds(sa.responseSec)) {
+                set(sa.copy(responseSec = (it / 15f).toInt() * 15))
+            }
+            SliderRow("Number of checks", sa.checks.toFloat(), 1f..5f, if (sa.checks == 1) "1 check" else "${sa.checks} checks", steps = 3) {
+                set(sa.copy(checks = it.toInt()))
+            }
+            SliderRow("Vibration only first", sa.vibrationOnlySec.toFloat(), 0f..120f,
+                if (sa.vibrationOnlySec == 0) "Off" else formatSeconds(sa.vibrationOnlySec)) { set(sa.copy(vibrationOnlySec = (it / 5f).toInt() * 5)) }
+            SliderRow("Fade into full blast", sa.fadeSec.toFloat(), 0f..300f, if (sa.fadeSec == 0) "Instant" else formatSeconds(sa.fadeSec)) {
+                set(sa.copy(fadeSec = (it / 15f).toInt() * 15))
+            }
+            if (sa.fadeSec > 0) SliderRow("Starting volume", sa.startVolumePercent.toFloat(), 1f..50f, "${sa.startVolumePercent}%") {
+                set(sa.copy(startVolumePercent = it.toInt()))
+            }
+            GroupRow("Sound", value = sa.sound?.title ?: "Default (${settings.defaultSound.title})", chevron = true, onClick = onPickSound)
+            ChoiceRow("Vibration pattern", VibrationPattern.entries, sa.vibrationPattern, { it.label }) { set(sa.copy(vibrationPattern = it)) }
+            ChoiceRow("Vibration intensity", Intensity.entries, sa.vibrationIntensity, { it.label }) { set(sa.copy(vibrationIntensity = it)) }
+            SwitchRow("Smart escalation", sa.smartEscalation, "Vibration gets stronger every 30 s") { set(sa.copy(smartEscalation = it)) }
+            ChoiceRow("While solving", SolvingMode.entries, sa.solvingMode, { it.label }) { set(sa.copy(solvingMode = it)) }
+            SwitchRow("Skip button", sa.skippable, "Lets you stop the re-ring without solving") { set(sa.copy(skippable = it)) }
+            GroupRow("Test the re-ring", icon = Icons.Play, divider = false, onClick = onTest, subtitle = "Plays it now, sped up")
         }
     }
 }

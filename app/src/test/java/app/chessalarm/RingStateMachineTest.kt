@@ -3,6 +3,7 @@ package app.chessalarm
 import app.chessalarm.data.GentleVibration
 import app.chessalarm.data.Intensity
 import app.chessalarm.data.SolvingMode
+import app.chessalarm.data.StillAwakeConfig
 import app.chessalarm.data.WakeConfig
 import app.chessalarm.ring.EndReason
 import app.chessalarm.ring.Phase
@@ -184,6 +185,47 @@ class RingStateMachineTest {
         assertEquals(Phase.GENTLE, m.output(5_000).phase)
         assertEquals(Phase.VIOLENT, m.output(6_000).phase)
         assertEquals(Intensity.MAXIMUM, m.output(9_000).vibration)
+    }
+
+    @Test fun stillAwakeStartsWithVibrationOnlyThenFadesIntoViolent() {
+        val m = RingStateMachine(RingConfig.stillAwake(WakeConfig(vibrationEnabled = false), StillAwakeConfig()), 0)
+        val start = m.output(0)
+        assertEquals(Phase.GENTLE, start.phase)
+        assertEquals(SoundSlot.NONE, start.sound)
+        assertEquals(0f, start.volume, 0f)
+        assertEquals("vibrates even if alarm vibration is off", Intensity.NORMAL, start.vibration)
+        assertEquals(SoundSlot.NONE, m.output(14_900).sound)
+        val fadeStart = m.output(15_000)
+        assertEquals(SoundSlot.PRIMARY, fadeStart.sound)
+        assertEquals(0.02f, fadeStart.volume, 0.001f)
+        var prev = 0f
+        for (t in 15_000L..74_900L step 100) {
+            val v = m.output(t).volume
+            assertTrue("rises at $t", v >= prev)
+            prev = v
+        }
+        assertTrue("reaches full volume smoothly", 1f - prev < 0.01f)
+        val violent = m.output(75_000)
+        assertEquals(Phase.VIOLENT, violent.phase)
+        assertEquals(1f, violent.volume, 0f)
+    }
+
+    @Test fun stillAwakeIsConfigurable() {
+        val sa = StillAwakeConfig(vibrationOnlySec = 0, fadeSec = 0, vibrationIntensity = Intensity.STRONG, smartEscalation = false,
+            solvingMode = SolvingMode.LOW_SOUND)
+        val m = RingStateMachine(RingConfig.stillAwake(WakeConfig(), sa), 0)
+        val o = m.output(0)
+        assertEquals("no lead, no fade: straight to violent", Phase.VIOLENT, o.phase)
+        assertEquals(Intensity.VIOLENT, o.vibration)
+        assertEquals(Intensity.VIOLENT, m.output(600_000).vibration)
+        m.onEvent(RingEvent.BoardTouched, 1_000)
+        assertEquals(0.15f, m.output(1_500).volume, 0.001f)
+
+        val long = RingStateMachine(RingConfig.stillAwake(WakeConfig(), StillAwakeConfig(vibrationOnlySec = 30, fadeSec = 120, startVolumePercent = 10)), 0)
+        assertEquals(SoundSlot.NONE, long.output(29_000).sound)
+        assertEquals(0.1f, long.output(30_000).volume, 0.001f)
+        assertEquals(Phase.GENTLE, long.output(149_000).phase)
+        assertEquals(Phase.VIOLENT, long.output(150_000).phase)
     }
 
     @Test fun curveIsExponential() {

@@ -23,6 +23,8 @@ data class RingUi(
     val emergencyEnabled: Boolean,
     val emergencyCode: String,
     val finished: EndReason? = null,
+    /** Test rings show an "End test" button. */
+    val testMode: Boolean = false,
 )
 
 /**

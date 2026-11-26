@@ -70,7 +70,7 @@ import kotlinx.coroutines.launch
 import java.time.ZonedDateTime
 
 /** Which sound a picker is choosing. */
-enum class SoundTarget { ALARM, ALARM_SECOND, DEFAULT, DEFAULT_SECOND }
+enum class SoundTarget { ALARM, ALARM_SECOND, DEFAULT, DEFAULT_SECOND, STILL_AWAKE }
 
 sealed interface Screen {
     data object List : Screen
@@ -169,6 +169,9 @@ private fun App(toggleFromWidget: Long?) {
             SoundTarget.DEFAULT_SECOND -> if (choice != null) AppStore.update(activity) {
                 it.copy(settings = it.settings.copy(wake = it.settings.wake.copy(secondarySound = choice)))
             }
+            SoundTarget.STILL_AWAKE -> AppStore.update(activity) {
+                it.copy(settings = it.settings.copy(stillAwake = it.settings.stillAwake.copy(sound = choice)))
+            }
         }
     }
 
@@ -177,6 +180,7 @@ private fun App(toggleFromWidget: Long?) {
         SoundTarget.ALARM_SECOND -> draft?.wake?.secondarySound ?: data.settings.wake.secondarySound
         SoundTarget.DEFAULT -> data.settings.defaultSound
         SoundTarget.DEFAULT_SECOND -> data.settings.wake.secondarySound
+        SoundTarget.STILL_AWAKE -> data.settings.stillAwake.sound
     }
 
     // ----- launchers
@@ -257,8 +261,8 @@ private fun App(toggleFromWidget: Long?) {
                 }
                 is Screen.Sound -> SoundPickerScreen(
                     current = currentSound(screen.target),
-                    allowSpotify = screen.target == SoundTarget.ALARM || screen.target == SoundTarget.DEFAULT,
-                    allowDefault = screen.target == SoundTarget.ALARM,
+                    allowSpotify = screen.target == SoundTarget.ALARM || screen.target == SoundTarget.DEFAULT || screen.target == SoundTarget.STILL_AWAKE,
+                    allowDefault = screen.target == SoundTarget.ALARM || screen.target == SoundTarget.STILL_AWAKE,
                     defaultSound = data.settings.defaultSound,
                     onBack = { pop() },
                     onPicked = { applySound(screen.target, it); pop() },
@@ -310,6 +314,8 @@ private fun App(toggleFromWidget: Long?) {
                         activity.toast("Test alarm in 10 seconds — lock your phone")
                     },
                     onTestSequence = { AlarmService.start(activity, AlarmScheduler.TEST_ALARM_ID, RingKind.TEST_SEQUENCE) },
+                    onPickStillAwakeSound = { push(Screen.Sound(SoundTarget.STILL_AWAKE)) },
+                    onTestStillAwake = { AlarmService.start(activity, AlarmScheduler.TEST_ALARM_ID, RingKind.TEST_STILL_AWAKE) },
                     onPermissions = { push(Screen.Onboarding) },
                     onSpotifyLogin = ::spotifyLogin,
                     onSpotifyLogout = { SpotifyAccount.logout(activity) },

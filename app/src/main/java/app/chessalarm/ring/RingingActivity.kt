@@ -215,7 +215,7 @@ private fun RingContent(ui: RingUi, sounds: app.chessalarm.ui.BoardSounds) {
                 PillButton("Mute", primary = true) { RingController.mute() }
             }
         }
-        if (ui.skippable || ui.kind == RingKind.TEST_SEQUENCE) {
+        if (ui.skippable || ui.testMode) {
             Spacer(Modifier.height(12.dp))
             PillButton(
                 if (ui.skippable) "Skip puzzle" else "End test",
