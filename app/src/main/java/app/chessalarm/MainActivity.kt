@@ -302,6 +302,11 @@ private fun App(toggleFromWidget: Long?) {
                     onChange = { s ->
                         val widgetChanged = s.widgetEnabled != data.settings.widgetEnabled
                         AppStore.update(activity) { it.copy(settings = s) }
+                        if (!s.stillAwakeCheck && data.settings.stillAwakeCheck) {
+                            // Turning the check off ends any series in progress.
+                            AlarmScheduler.cancelStillAwake(activity)
+                            AppStore.update(activity) { it.copy(stillAwakeRemaining = 0) }
+                        }
                         if (widgetChanged) NextAlarmWidget.setEnabled(activity, s.widgetEnabled)
                         AlarmScheduler.scheduleBedtime(activity)
                     },

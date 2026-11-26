@@ -216,10 +216,18 @@ class RingStateMachineTest {
         val m = RingStateMachine(RingConfig.stillAwake(WakeConfig(), sa), 0)
         val o = m.output(0)
         assertEquals("no lead, no fade: straight to violent", Phase.VIOLENT, o.phase)
-        assertEquals(Intensity.VIOLENT, o.vibration)
-        assertEquals(Intensity.VIOLENT, m.output(600_000).vibration)
+        assertEquals(Intensity.STRONG, o.vibration)
+        assertEquals("no escalation when off", Intensity.STRONG, m.output(600_000).vibration)
+        assertEquals("no second sound", SoundSlot.PRIMARY, o.sound)
         m.onEvent(RingEvent.BoardTouched, 1_000)
         assertEquals(0.15f, m.output(1_500).volume, 0.001f)
+
+        val gentle = RingStateMachine(RingConfig.stillAwake(WakeConfig(secondarySoundEnabled = true),
+            StillAwakeConfig(vibrationIntensity = Intensity.GENTLE)), 0)
+        assertEquals(Intensity.GENTLE, gentle.output(0).vibration)
+        assertEquals(Intensity.GENTLE, gentle.output(75_000).vibration)
+        assertEquals(SoundSlot.PRIMARY, gentle.output(75_000).sound)
+        assertEquals(Intensity.NORMAL, gentle.output(105_000).vibration)
 
         val long = RingStateMachine(RingConfig.stillAwake(WakeConfig(), StillAwakeConfig(vibrationOnlySec = 30, fadeSec = 120, startVolumePercent = 10)), 0)
         assertEquals(SoundSlot.NONE, long.output(29_000).sound)

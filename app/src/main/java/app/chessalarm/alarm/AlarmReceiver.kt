@@ -34,6 +34,10 @@ class AlarmReceiver : BroadcastReceiver() {
                 AlarmScheduler.rescheduleAll(context)
             }
             AlarmScheduler.ACTION_STILL_AWAKE_PROMPT -> {
+                if (!AppStore.current.settings.stillAwakeCheck) {
+                    AppStore.update(context) { it.copy(stillAwakeRemaining = 0) }
+                    return
+                }
                 val sa = AppStore.current.settings.stillAwake
                 AppStore.update(context) { it.copy(stillAwakeRemaining = (it.stillAwakeRemaining - 1).coerceAtLeast(0)) }
                 Notifications.showStillAwake(context, sa.responseSec)
@@ -42,7 +46,7 @@ class AlarmReceiver : BroadcastReceiver() {
             AlarmScheduler.ACTION_IM_UP -> {
                 AlarmScheduler.cancelStillAwake(context)
                 Notifications.cancel(context, Notifications.ID_STILL_AWAKE)
-                if (AppStore.current.stillAwakeRemaining > 0) {
+                if (AppStore.current.stillAwakeRemaining > 0 && AppStore.current.settings.stillAwakeCheck) {
                     AlarmScheduler.scheduleStillAwakePrompt(context, AppStore.current.settings.stillAwake.delayMin * 60_000L)
                 }
             }

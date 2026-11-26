@@ -307,7 +307,7 @@ class AlarmService : Service() {
                 version = version,
                 phase = m.phase,
                 canMute = m.canMute,
-                skippable = r.kind == RingKind.STILL_AWAKE && settings.stillAwake.skippable,
+                skippable = (r.kind == RingKind.STILL_AWAKE || r.kind == RingKind.TEST_STILL_AWAKE) && settings.stillAwake.skippable,
                 testMode = r.kind == RingKind.TEST_SEQUENCE || r.kind == RingKind.TEST_STILL_AWAKE,
                 emergencyEnabled = settings.emergencyExitEnabled,
                 emergencyCode = settings.emergencyCode,
@@ -435,7 +435,8 @@ class AlarmService : Service() {
     fun requestEnd(reason: EndReason) {
         val r = ring ?: return
         val allowed = when (reason) {
-            EndReason.SKIPPED -> r.kind == RingKind.STILL_AWAKE && AppStore.current.settings.stillAwake.skippable
+            EndReason.SKIPPED -> (r.kind == RingKind.STILL_AWAKE || r.kind == RingKind.TEST_STILL_AWAKE) &&
+                AppStore.current.settings.stillAwake.skippable
             EndReason.TEST_ENDED -> r.kind == RingKind.TEST_SEQUENCE || r.kind == RingKind.TEST_STILL_AWAKE
             else -> false
         }
@@ -512,9 +513,11 @@ class AlarmService : Service() {
             // Start a new series of checks.
             AppStore.update(this) { it.copy(stillAwakeRemaining = settings.stillAwake.checks.coerceAtLeast(1)) }
             AlarmScheduler.scheduleStillAwakePrompt(this, settings.stillAwake.delayMin * 60_000L)
-        } else if (r.kind == RingKind.STILL_AWAKE && reason != EndReason.EMERGENCY_EXIT) {
-            // After a re-ring, carry on with the series if checks are left.
-            if (AppStore.current.stillAwakeRemaining > 0) {
+        } else if (r.kind == RingKind.STILL_AWAKE && reason == EndReason.EMERGENCY_EXIT) {
+            AppStore.update(this) { it.copy(stillAwakeRemaining = 0) }
+        } else if (r.kind == RingKind.STILL_AWAKE) {
+            // After a re-ring, carry on with the series if checks are left and the feature is still on.
+            if (AppStore.current.stillAwakeRemaining > 0 && settings.stillAwakeCheck) {
                 AlarmScheduler.scheduleStillAwakePrompt(this, settings.stillAwake.delayMin * 60_000L)
             }
         }

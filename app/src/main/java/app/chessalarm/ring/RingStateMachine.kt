@@ -77,7 +77,11 @@ data class RingConfig(
                 gentleMax = 1f,
                 gentleVibration = GentleVibration.SOFT,
                 gentleVibrationIntensity = sa.vibrationIntensity,
+                // The chosen intensity is where violent vibration starts (escalation goes up from there).
+                violentPreset = sa.vibrationIntensity,
                 baseIntensity = sa.vibrationIntensity,
+                // One sound throughout: no switch to the global "harsher second sound".
+                secondarySound = false,
                 smartEscalation = sa.smartEscalation,
                 solvingMode = sa.solvingMode,
                 vibrationEnabled = true,
