@@ -4,6 +4,9 @@ on:
   push:            # every push (including main) builds and uploads a signed APK
   workflow_dispatch:
 
+permissions:
+  contents: write   # to publish GitHub Releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -33,6 +36,7 @@ jobs:
         run: |
           ./gradlew --no-daemon :app:assembleRelease
           cp app/build/outputs/apk/release/app-release.apk "chess-alarm-${GITHUB_RUN_NUMBER}.apk"
+          cp app/build/outputs/apk/release/app-release.apk chess-alarm.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -40,6 +44,20 @@ jobs:
           name: chess-alarm-apk
           path: chess-alarm-*.apk
           retention-days: 90
+
+      # Pushes to the default branch become a public release anyone can download without a GitHub
+      # account. The asset is always named chess-alarm.apk, so this link always gets the newest build:
+      # https://github.com/<owner>/<repo>/releases/latest/download/chess-alarm.apk
+      - name: Publish release
+        if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v1.0.${GITHUB_RUN_NUMBER}" chess-alarm.apk \
+            --target "${GITHUB_SHA}" \
+            --title "Chess Alarm 1.0.${GITHUB_RUN_NUMBER}" \
+            --notes "Built from ${GITHUB_SHA::7}. Download chess-alarm.apk on your Android phone (Android 8.0+) and open it to install." \
+            --latest
 
       - name: Upload test reports
         if: failure()
